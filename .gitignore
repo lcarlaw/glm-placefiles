@@ -1,0 +1,10 @@
+input/*.nc.*
+input/*.txt
+temp/*.npz
+temp/*.txt
+processing/__pycache__
+utils/__pycache__
+output/*.png
+output/*.txt
+__pycache__
+*.log

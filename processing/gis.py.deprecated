@@ -1,0 +1,130 @@
+import arcpy
+from arcpy.sa import NbrCircle, Con, IsNull, FocalStatistics, Raster
+arcpy.CheckOutExtension("spatial")                              
+arcpy.env.overwriteOutput = True
+import numpy as np
+
+def create_csv2(array, lons, lats, **kwargs):
+    out_csv = kwargs.get("temp_summation_csv")
+    min_lon = kwargs.get("min_lon")
+    min_lat = kwargs.get("min_lat")
+    max_lon = kwargs.get("max_lon")
+    max_lat = kwargs.get("max_lat")
+        
+    csv_file = open(out_csv, "w")
+    csv_file.write("lat,lon,lghtng_dens\n")
+
+    for i in range(0,len(array)):
+        if (str(array[i][0]) != "nan") and (str(array[i][1]) != "nan"):
+            if float(array[i][0] >= min_lon) and float(array[i][0] <= max_lon) and float(array[i][1] >= min_lat) and float(array[i][1] <= max_lat):
+                if (str(array[i][2]) == "nan"):
+                    csv_file.write(str(array[i][1]) + "," + str(array[i][0]) + "," + "0.0" + "\n")
+                else:
+                    csv_file.write(str(array[i][1]) + "," + str(array[i][0]) + "," + str(array[i][2]) + "\n")  
+    csv_file.close()
+    del csv_file
+
+def create_csv(data, lons, lats, mask, **kwargs):
+    out_csv = kwargs.get("temp_summation_csv")
+    min_lon = kwargs.get("min_lon")
+    min_lat = kwargs.get("min_lat")
+    max_lon = kwargs.get("max_lon")
+    max_lat = kwargs.get("max_lat")
+    
+    # Flatten array into 1-d vector and convert NaNs to 0.
+    data = np.nan_to_num(data.ravel()[mask])
+    lons = lons.ravel()[mask]
+    lats = lats.ravel()[mask]
+    
+    csv_file = open(out_csv, "w")
+    csv_file.write("lat,lon,lghtng_dens\n")
+
+    for count, val in enumerate(data):
+        if (min_lon <= lons[count] <= max_lon) and (min_lat <= lats[count] <= max_lat):
+            csv_file.write(f"{lats[count]},{lons[count]},{val}\n")
+
+    csv_file.close()
+    del csv_file
+
+
+def create_shp_from_csv(in_csv, out_shp, temp_folder):
+    arcpy.MakeXYEventLayer_management(in_csv, "lon", "lat", "feature_layer", "",
+                                      "")
+    arcpy.FeatureClassToFeatureClass_conversion("feature_layer", temp_folder,
+                                                out_shp[len(temp_folder):])
+    arcpy.DefineProjection_management(out_shp, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]]")
+
+
+def create_raster_from_shp(in_shp, out_img, **kwargs):
+    temp_folder = kwargs.get("temp_folder")
+    raw_data_resolution_deg = kwargs.get("raw_data_resolution_deg")
+    interpolation_resolution_deg = kwargs.get("interpolation_resolution_deg")
+    
+    #this method creates a raster from the shapefile using a straight point to
+    #raster conversion, using a set grid spacing  
+    arcpy.conversion.PointToRaster(in_shp, "lghtng_den",
+                                   temp_folder+"temp_pointtoraster.tif", "MEAN",
+                                   "", raw_data_resolution_deg)
+
+    #focal statistics is needed to help fill in isolated gaps that occur in the
+    #grid spacing due to PointToRaster not matching the exact spacing of the
+    #netcdf
+    focal_stats_raster = FocalStatistics(temp_folder + "temp_pointtoraster.tif",
+                                         NbrCircle(2,"CELL"), "MEAN", "DATA")
+    focal_stats_raster.save(temp_folder + "temp_focalstats.tif")
+    filled_missing_raster = Con(IsNull(temp_folder + "temp_pointtoraster.tif"),
+                                focal_stats_raster,
+                                temp_folder + "temp_pointtoraster.tif")
+    filled_missing_raster.save(temp_folder + "temp_filledmissing.tif")
+    arcpy.Resample_management(filled_missing_raster, out_img,
+                              interpolation_resolution_deg, "BILINEAR")
+    #lightning_raster.save(out_img)
+    #del lightning_raster
+
+def create_screenshot_from_arcpro_template(in_img, out_png, **kwargs):
+    arcpro_template_file = kwargs.get("arcpro_template_file")
+    temp_raster = Raster(in_img)
+    temp_raster.save(kwargs.get("temp_lightning_density_sum_raster_file"))
+    map_project = arcpy.mp.ArcGISProject(arcpro_template_file)
+    layout = map_project.listLayouts("Layout")[0]
+    map_layer = map_project.listMaps("Map")[0]
+    map_view = map_layer.defaultView
+    map_frame = layout.listElements("MapFrame_Element","Map Frame")[0]
+
+    map_view.camera.setExtent(kwargs.get("arcpro_extent"))
+    map_view.exportToPNG(out_png, width=kwargs.get("image_size"),
+                         height=kwargs.get("image_size"), world_file=True,
+                         color_mode="32-BIT_WITH_ALPHA")
+
+    ##
+    ## other ways to export images from the arcpro template
+    ##
+    #map_frame.panToExtent(arcpro_extent)
+    #map_frame.exportToPNG(out_png)
+    #map_frame.exportToPNG(out_png, 200, True, "32-BIT_WITH_ALPHA")
+    
+    #layout.exportToPNG(out_png)
+    ##
+
+    del map_frame
+    del map_layer
+    del layout
+    del map_view
+    del map_project
+
+def get_coords_from_world_file(world_file, image_size):
+    world_f = open(world_file,"r")
+    world_file_lines = world_f.readlines()
+    world_f.close()
+    del world_f
+
+    #image_size = kwargs.get("image_size")
+
+    min_lon_image = float(world_file_lines[4])
+    max_lat_image = float(world_file_lines[5])
+    max_lon_image = min_lon_image + (image_size * float(world_file_lines[0]))
+    min_lat_image = max_lat_image + (image_size * float(world_file_lines[3]))
+    mid_lon_image = (min_lon_image + max_lon_image ) / 2
+    mid_lat_image = (min_lat_image + max_lat_image ) / 2
+
+    return min_lat_image, max_lat_image, min_lon_image, max_lon_image, mid_lat_image, mid_lon_image
