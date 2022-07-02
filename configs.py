@@ -43,8 +43,8 @@ max_lon = -82   ##-86.0
 
 #
 # URLs
-thredds_catalog_url = "https://thredds.ucar.edu/thredds/catalog/satellite/goes/east/products/GeostationaryLightningMapper/CONUS/current/catalog.html"
-thredds_download_base_url = "https://thredds.ucar.edu/thredds/fileServer/satellite/goes/east/products/GeostationaryLightningMapper/CONUS/current/"
+thredds_catalog_url = "https://thredds.ucar.edu/thredds/catalog/satellite/goes/east/products/GLMISatSS/Level2/FullDisk/current/catalog.html"
+thredds_download_base_url = "https://thredds.ucar.edu/thredds/fileServer/satellite/goes/east/products/GLMISatSS/Level2/FullDisk/current/"
 
 #
 # ArcPro

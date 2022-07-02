@@ -52,7 +52,7 @@ def query_glm_files(script_run_time_utc, **kwargs):
     time_list = create_time_list(start, end, delta)
 
     #retrieve all thredds catalog entries for GLM lightning density data
-    regex = "OR_GLM-L2-GLMC-M3_G16_s[\d]{14}_e[\d]{14}_c[\d]{14}.nc"
+    regex = "OR_GLM-L2-GLMF-M6_G16_s[\d]{14}_e[\d]{14}_c[\d]{14}.nc"
     netcdf_file_list = find_files(kwargs.get("thredds_catalog_url"), regex)
 
     #loop through list of available netcdf files from thredds catalog, check to see if

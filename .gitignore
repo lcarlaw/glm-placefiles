@@ -8,3 +8,6 @@ output/*.png
 output/*.txt
 __pycache__
 *.log
+.DS_Store
+output/.DS_Store
+temp/.DS_Store

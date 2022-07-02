@@ -13,5 +13,5 @@ def write_to_numpy(netcdf_file, outdir):
     ds = xr.open_dataset(netcdf_file)
     file_time = datetime.datetime.strptime(ds.time_coverage_end, "%Y-%m-%dT%H:%M:%SZ")
     savename = f"{outdir}lightning_density_1min_{file_time.strftime('%Y_%m_%d_%H%M')}"
-    np.savez_compressed(savename, a=ds.flash_extent_density.values)
+    np.savez_compressed(savename, a=ds.Flash_extent_density.values)
     return
